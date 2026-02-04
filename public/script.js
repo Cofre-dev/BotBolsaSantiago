@@ -11,28 +11,22 @@ const btnLoader = document.getElementById('btn-loader');
 const today = new Date().toISOString().split('T')[0];
 fechaInput.setAttribute('max', today);
 
-function addLog(msg) {
-    const div = document.createElement('div');
-    div.textContent = `> ${msg}`;
-    logs.appendChild(div);
-    logs.scrollTop = logs.scrollHeight;
-}
-
 btnDescargar.addEventListener('click', async () => {
     const selectedDate = new Date(fechaInput.value);
-    
+
     // Validate if it's a weekday
     const day = selectedDate.getUTCDay(); // 0 = Sunday, 6 = Saturday
+
     if (!fechaInput.value) {
         errorMsg.textContent = 'Por favor selecciona una fecha.';
         return;
     }
-    
+
     if (day === 0 || day === 6) {
         errorMsg.textContent = 'Por favor selecciona un día hábil (Lunes a Viernes).';
         return;
     }
-    
+
     errorMsg.textContent = '';
     startProcess(fechaInput.value);
 });
@@ -41,11 +35,8 @@ async function startProcess(date) {
     btnDescargar.disabled = true;
     btnLoader.style.display = 'block';
     statusContainer.classList.remove('hidden');
-    logs.innerHTML = '';
     progressFill.style.width = '10%';
     statusText.textContent = 'Iniciando navegación...';
-    
-    addLog('Solicitando descarga para: ' + date);
 
     try {
         const response = await fetch('/api/process', {
@@ -60,23 +51,21 @@ async function startProcess(date) {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             const chunk = decoder.decode(value);
             const lines = chunk.split('\n');
-            
+
             for (const line of lines) {
                 if (!line) continue;
                 try {
                     const data = JSON.parse(line);
                     if (data.status) statusText.textContent = data.status;
-                    if (data.log) addLog(data.log);
                     if (data.progress) progressFill.style.width = data.progress + '%';
-                    
+
                     if (data.fileUrl) {
-                        addLog('Proceso completado con éxito.');
                         progressFill.style.width = '100%';
-                        statusText.textContent = 'Excel generado!';
-                        
+                        statusText.textContent = '¡Descarga completada!';
+
                         // Create download link
                         const a = document.createElement('a');
                         a.href = data.fileUrl;
@@ -85,19 +74,18 @@ async function startProcess(date) {
                         a.click();
                         document.body.removeChild(a);
                     }
-                    
+
                     if (data.error) {
-                        addLog('ERROR: ' + data.error);
-                        statusText.textContent = 'Error en el proceso';
+                        statusText.textContent = 'Error: ' + data.error;
                         progressFill.style.background = '#d63031';
                     }
                 } catch (e) {
-                    // Not JSON, ignore
+                    console.log(e);
                 }
             }
         }
     } catch (err) {
-        addLog('Fallo de conexión con el servidor.');
+        statusText.textContent = 'Fallo de conexión con el servidor.';
         console.error(err);
     } finally {
         btnDescargar.disabled = false;

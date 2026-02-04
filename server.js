@@ -65,7 +65,6 @@ app.post('/api/process', async (req, res) => {
 
         sendUpdate({ log: 'Extrayendo datos del PDF...', status: 'Procesando', progress: 50 });
 
-        // Use custom pagerender to separate pages with a clear marker
         const render_page = (pageData) => {
             return pageData.getTextContent().then(textContent => {
                 let lastY, text = '';
@@ -91,9 +90,24 @@ app.post('/api/process', async (req, res) => {
             const cleanText = pageText.toLowerCase();
             if (cleanText.includes('precio de cierre de acciones') || cleanText.includes('precios de cierre de acciones')) {
                 const tableData = parseActionTable(pageText);
-                if (tableData.length > 3) { // Use a threshold to avoid capturing small index fragments
+                if (tableData.length > 3) {
                     sheetCount++;
-                    const worksheet = XLSX.utils.json_to_sheet(tableData);
+
+                    // Convert rows to numeric values properly for Excel
+                    const numericData = tableData.map(row => {
+                        // row['Cierre ($)'] comes like "1.101,400"
+                        // We remove dots (thousands) and replace comma with dot (decimal)
+                        // Then parse it as a number so XLSX knows it's numeric.
+                        const valueStr = row['Cierre ($)'].replace(/\./g, '').replace(',', '.');
+                        const numValue = parseFloat(valueStr);
+
+                        return {
+                            'Nemo': row['Nemo'],
+                            'Cierre ($)': numValue
+                        };
+                    });
+
+                    const worksheet = XLSX.utils.json_to_sheet(numericData);
                     XLSX.utils.book_append_sheet(workbook, worksheet, `hoja${sheetCount}`);
                 }
             }
