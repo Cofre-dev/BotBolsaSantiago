@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolsa de Santiago - Bot de Boletines</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Boletín Bursátil</h1>
+            <p>Descarga y exporta datos de cierre de acciones automáticamente.</p>
+        </header>
+
+        <main class="card">
+            <section class="form-container">
+                <div class="input-group">
+                    <label for="fecha">Selecciona un día hábil (Lunes a Viernes)</label>
+                    <input type="date" id="fecha" class="modern-input">
+                    <small id="error-msg" class="error-text"></small>
+                </div>
+
+                <button id="btn-descargar" class="btn-primary">
+                    <span class="btn-text">Iniciar Proceso</span>
+                    <div class="loader-inline" id="btn-loader"></div>
+                </button>
+            </section>
+
+            <section id="status-container" class="status-container hidden">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <p id="status-text">Esperando inicio...</p>
+                <div id="logs" class="logs-panel"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Bot de Bolsa de Santiago</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
