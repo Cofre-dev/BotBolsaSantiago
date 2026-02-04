@@ -83,7 +83,7 @@ async function startProcess(date) {
 
                     if (data.error) {
                         statusText.textContent = 'Error: ' + data.error;
-                        progressFill.style.background = '#090085ff';
+                        progressFill.style.background = '#d63031';
                         spinner.classList.add('finished');
                         spinner.style.borderColor = '#090085ff';
                     }
