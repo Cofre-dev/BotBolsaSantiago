@@ -6,6 +6,8 @@ const progressFill = document.getElementById('progress-fill');
 const statusText = document.getElementById('status-text');
 const logs = document.getElementById('logs');
 const btnLoader = document.getElementById('btn-loader');
+const spinner = document.querySelector('.spinner');
+const warningText = document.querySelector('.warning-text');
 
 // Set max date to today
 const today = new Date().toISOString().split('T')[0];
@@ -35,6 +37,8 @@ async function startProcess(date) {
     btnDescargar.disabled = true;
     btnLoader.style.display = 'block';
     statusContainer.classList.remove('hidden');
+    spinner.classList.remove('finished');
+    warningText.style.display = 'block';
     progressFill.style.width = '10%';
     statusText.textContent = 'Iniciando navegación...';
 
@@ -64,7 +68,9 @@ async function startProcess(date) {
 
                     if (data.fileUrl) {
                         progressFill.style.width = '100%';
-                        statusText.textContent = '¡Descarga completada!';
+                        statusText.textContent = '¡Proceso concluido!';
+                        spinner.classList.add('finished');
+                        warningText.style.display = 'none';
 
                         // Create download link
                         const a = document.createElement('a');
@@ -77,7 +83,9 @@ async function startProcess(date) {
 
                     if (data.error) {
                         statusText.textContent = 'Error: ' + data.error;
-                        progressFill.style.background = '#d63031';
+                        progressFill.style.background = '#090085ff';
+                        spinner.classList.add('finished');
+                        spinner.style.borderColor = '#090085ff';
                     }
                 } catch (e) {
                     console.log(e);

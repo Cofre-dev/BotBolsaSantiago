@@ -149,7 +149,14 @@ label {
     border-top: 5px solid var(--primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    transition: all 0.3s ease;
 }
+
+.spinner.finished {
+    animation: none;
+    border: 5px solid var(--success);
+}
+
 
 @keyframes spin {
     0% {
