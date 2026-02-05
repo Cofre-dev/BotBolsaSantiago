@@ -3,7 +3,7 @@ const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 const pdf = require('pdf-parse');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const cors = require('cors');
 const https = require('https');
 
@@ -83,37 +83,114 @@ app.post('/api/process', async (req, res) => {
         const pdfData = await pdf(pdfBuffer, { pagerender: render_page });
         const pages = pdfData.text.split('---PAGE_END---');
 
-        const workbook = XLSX.utils.book_new();
-        let sheetCount = 0;
+        const workbook = new ExcelJS.Workbook();
+        let accionesPages = [];
+        let cfiPages = [];
 
         pages.forEach((pageText) => {
             const cleanText = pageText.toLowerCase();
-            if (cleanText.includes('precio de cierre de acciones') || cleanText.includes('precios de cierre de acciones')) {
-                const tableData = parseActionTable(pageText);
-                if (tableData.length > 3) {
-                    sheetCount++;
+            let sectionType = null;
 
-                    // Convert columns to numeric for Excel
-                    const numericData = tableData.map(row => {
-                        const valueStr = row['Cierre ($)'].replace(/\./g, '').replace(',', '.');
-                        const numValue = parseFloat(valueStr);
-                        return {
-                            'Nemo': row['Nemo'],
-                            'Cierre ($)': numValue
-                        };
+            if (cleanText.includes('precio de cierre de acciones') || cleanText.includes('precios de cierre de acciones')) {
+                sectionType = 'Acciones';
+            } else if (
+                cleanText.includes('precio de cierre de cfi') ||
+                cleanText.includes('precios de cierre de cfi') ||
+                cleanText.includes('precio de cierre cfi') ||
+                cleanText.includes('precios de cierre cfi') ||
+                (cleanText.includes('precios de cierre') && cleanText.includes('mercado cfi'))
+            ) {
+                sectionType = 'CFI';
+            }
+
+            if (sectionType) {
+                const tableData = parseActionTable(pageText);
+                if (tableData.length > 0) {
+                    const formattedRows = tableData.map(row => {
+                        let numValue = 0;
+                        if (row['Cierre ($)'] && row['Cierre ($)'] !== '0') {
+                            const valueStr = row['Cierre ($)'].replace(/\./g, '').replace(',', '.');
+                            numValue = parseFloat(valueStr) || 0;
+                        }
+                        return [row['Nemo'], numValue];
                     });
 
-                    const worksheet = XLSX.utils.json_to_sheet(numericData);
-                    XLSX.utils.book_append_sheet(workbook, worksheet, `hoja${sheetCount}`);
+                    if (sectionType === 'Acciones') {
+                        accionesPages.push(formattedRows);
+                    } else {
+                        cfiPages.push(formattedRows);
+                    }
                 }
             }
         });
 
-        if (sheetCount === 0) throw new Error('No se encontraron tablas de cierre de acciones.');
+        const createSideBySideTable = (sheetName, allPages, isFirstSheet) => {
+            if (allPages.length === 0) return;
+            const sheet = workbook.addWorksheet(sheetName);
+
+            let startRow = 1;
+
+            // Add Header Metadata if it's the first sheet
+            if (isFirstSheet) {
+                const headerInfo = [
+                    ['VALORES BURSATILES'],
+                    ['Fecha de Proceso:', `${day}/${month}/${year}`],
+                    ['Mes:', month],
+                    ['Año:', year],
+                    ['Archivo Fuente:', `ibd${day}${month}${shortYear}.pdf`],
+                    [] // Empty row
+                ];
+                sheet.addRows(headerInfo);
+
+                // Style Header
+                sheet.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0046AD' } };
+                sheet.getCell('A2').font = { bold: true };
+                sheet.getCell('A3').font = { bold: true };
+                sheet.getCell('A4').font = { bold: true };
+                sheet.getCell('A5').font = { bold: true };
+
+                startRow = 7;
+
+            }
+
+            allPages.forEach((rows, pageIdx) => {
+                const startCol = pageIdx * 3 + 1;
+
+                sheet.getColumn(startCol).width = 25;
+                sheet.getColumn(startCol + 1).width = 15;
+                sheet.getColumn(startCol + 2).width = 5;
+
+                const startRef = `${sheet.getColumn(startCol).letter}${startRow}`;
+
+                sheet.addTable({
+                    name: `Table_${sheetName.replace(/\s/g, '_')}_${pageIdx}`,
+                    ref: startRef,
+                    headerRow: true,
+                    totalsRow: false,
+                    style: {
+                        theme: 'TableStyleMedium9',
+                        showRowStripes: true,
+                    },
+                    columns: [
+                        { name: 'Nemo', filterButton: true },
+                        { name: 'Cierre ($)', filterButton: true },
+                    ],
+                    rows: rows,
+                });
+
+                const priceCol = sheet.getColumn(startCol + 1);
+                priceCol.numFmt = '#,##0.000';
+            });
+        };
+
+        createSideBySideTable('Acciones', accionesPages, true);
+        createSideBySideTable('CFI', cfiPages, false);
+
+        if (accionesPages.length === 0 && cfiPages.length === 0) throw new Error('No se encontraron tablas de cierre.');
 
         const excelFileName = `Boletin_${day}_${month}_${year}.xlsx`;
         const excelPath = path.join(__dirname, 'public', excelFileName);
-        XLSX.writeFile(workbook, excelPath);
+        await workbook.xlsx.writeFile(excelPath);
 
         sendUpdate({
             log: 'Proceso completado.',
@@ -134,19 +211,22 @@ app.post('/api/process', async (req, res) => {
 function parseActionTable(text) {
     const lines = text.split('\n');
     const results = [];
-    const lineRegex = /^(.*?)\s?((?:[1-9]\d{0,2}(?:\.\d.3})*|0),\d{3})$/;
+    const fullRowRegex = /^(.*?)((?:[1-9]\d{0,2}(?:\.\d{3})*|0),\d{3})$/;
+    const nemoOnlyRegex = /^[A-Z0-9.\-]{3,15}$/;
 
     lines.forEach(line => {
         const trimmed = line.trim();
         if (!trimmed || trimmed.toLowerCase().includes('nemo') || trimmed.includes('DE 09:00')) return;
 
-        const match = trimmed.match(lineRegex);
-        if (match) {
-            const nemo = match[1].trim();
-            const price = match[2].trim();
-            if (nemo && nemo.length > 2 && isNaN(nemo)) {
+        const fullMatch = trimmed.match(fullRowRegex);
+        if (fullMatch) {
+            const nemo = fullMatch[1].trim();
+            const price = fullMatch[2].trim();
+            if (nemo && !nemo.includes('Nemotécnico')) {
                 results.push({ 'Nemo': nemo, 'Cierre ($)': price });
             }
+        } else if (trimmed.match(nemoOnlyRegex)) {
+            results.push({ 'Nemo': trimmed, 'Cierre ($)': '0' });
         }
     });
     return results;
