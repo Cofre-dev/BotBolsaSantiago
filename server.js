@@ -137,13 +137,12 @@ app.post('/api/process', async (req, res) => {
                     ['Fecha de Proceso:', `${day}/${month}/${year}`],
                     ['Mes:', month],
                     ['Año:', year],
-                    ['Archivo Fuente:', `ibd${day}${month}${shortYear}.pdf`],
                     [] // Empty row
                 ];
                 sheet.addRows(headerInfo);
 
                 // Style Header
-                sheet.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF0046AD' } };
+                sheet.getCell('A1').font = { bold: true, size: 14, color: { argb: '00ffb9' } };
                 sheet.getCell('A2').font = { bold: true };
                 sheet.getCell('A3').font = { bold: true };
                 sheet.getCell('A4').font = { bold: true };
