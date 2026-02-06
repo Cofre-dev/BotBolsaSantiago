@@ -1,9 +1,0 @@
-<a ng-href="
-
-https://cibe.bolsadesantiago.com/Documentos/EstadisticasyPublicaciones/Boletines%20Burstiles/ibd301225.pdf
-
-
-
-" target="_blank" class="text-info mail-link ng-binding" href="
-https://cibe.bolsadesantiago.com/Documentos/EstadisticasyPublicaciones/Boletines%20Burstiles/ibd301225.pdf"
-> Boletin 30-12-2025 </a>
